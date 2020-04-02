@@ -1,0 +1,62 @@
+---
+# Based on: https://jitsi.org/downloads/ubuntu-debian-installations-instructions/
+
+- name: Install Jitsi Meet
+  hosts: jitsi
+  tasks:
+    - name: Set hostname
+      hostname:
+        name: jitsi
+      
+    - name: Set hostname in /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        regexp: ^127.0.1.1
+        line: 127.0.1.1 {{ jitsi_hostname }} jitsi
+
+    - name: Update apt cache
+      apt:
+        update_cache: true
+
+    - name: Install upgrades
+      apt:
+        name: '*'
+        state: latest
+
+    - name: Install key
+      apt_key:
+        url: https://download.jitsi.org/jitsi-key.gpg.key
+        state: present
+
+    - name: Add jitsi repo
+      copy:
+        dest: /etc/apt/sources.list.d/jitsi-stable.list
+        content: deb https://download.jitsi.org stable/
+  
+    - name: Preset values for install
+      shell: echo "{{ item }}" | debconf-set-selections
+      loop:
+         - jicofo  jitsi-videobridge/jvb-hostname string {{ jitsi_hostname }}
+         - jitsi-meet-turnserver jitsi-videobridge/jvb-hostname string {{ jitsi_hostname }}
+         - jitsi-meet-web-config jitsi-meet/cert-choice select Generate a new self-signed certificate (You will later get a chance to obtain a Let's encrypt certificate)
+
+    - name: Install jitsi-meet
+      apt:
+        name: jitsi-meet
+        install_recommends: false
+        update_cache: true
+
+    - name: Preset email value for letsencrypt script
+      lineinfile:
+        path: /usr/share/jitsi-meet/scripts/install-letsencrypt-cert.sh
+        regexp: 'read EMAIL$'
+        line: "EMAIL={{ letsencrypt_email }}  # read EMAIL"
+
+    - name: Check if letencrypt already ran
+      stat:
+        path: /etc/letsencrypt/live/{{ jitsi_hostname }}
+      register: certificate_folder
+
+    - name: Configure Letsencrypt
+      command: /usr/share/jitsi-meet/scripts/install-letsencrypt-cert.sh
+      when: not certificate_folder.stat.exists
