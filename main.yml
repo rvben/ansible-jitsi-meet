@@ -50,7 +50,7 @@
       lineinfile:
         path: /usr/share/jitsi-meet/scripts/install-letsencrypt-cert.sh
         regexp: 'read EMAIL$'
-        line: "EMAIL={{ letsencrypt_email }}  # read EMAIL"
+        line: "EMAIL={{ email_address }}  # read EMAIL"
 
     - name: Check if letencrypt already ran
       stat:
