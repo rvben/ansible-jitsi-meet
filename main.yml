@@ -3,6 +3,13 @@
 
 - name: Install Jitsi Meet
   hosts: jitsi
+  pre_tasks:
+    - name: Assert variables
+      assert:
+        that:
+          - jitsi_hostname is defined
+          - email_address is defined
+      
   tasks:
     - name: Set hostname
       hostname:
