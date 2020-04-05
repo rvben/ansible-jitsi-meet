@@ -15,13 +15,13 @@ Using this playbook, Jitsi Meet is set up with Nginx and Let's Encrypt certifica
 1. Clone repository
 
 ```bash
-\$ git clone https://github.com/rvben/ansible-jitsi-meet.git
-\$ cd ansible-jitsi-meet
+&#0036; git clone https://github.com/rvben/ansible-jitsi-meet.git
+&#0036; cd ansible-jitsi-meet
 ```
 
 1. Define your host details in inventory.ini
 1. Run playbook
 
 ```bash
-\$ ansible-playbook -i inventory.ini main.yml
+&#0036; ansible-playbook -i inventory.ini main.yml
 ```
