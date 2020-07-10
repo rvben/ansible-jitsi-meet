@@ -3,6 +3,9 @@
 
 - name: Install Jitsi Meet
   hosts: jitsi
+  vars:
+    generate_certs: true
+
   pre_tasks:
     - name: Assert variables
       assert:
@@ -53,17 +56,75 @@
         install_recommends: false
         update_cache: true
 
-    - name: Preset email value for letsencrypt script
-      lineinfile:
-        path: /usr/share/jitsi-meet/scripts/install-letsencrypt-cert.sh
-        regexp: 'read EMAIL$'
-        line: "EMAIL={{ email_address }}  # read EMAIL"
-
-    - name: Check if letencrypt already ran
+    - name: Check presence certificates
       stat:
-        path: /etc/letsencrypt/live/{{ jitsi_hostname }}
-      register: certificate_folder
+        path: "{{ playbook_dir }}/files/{{ item }}"
+      delegate_to: localhost
+      register: certs
+      loop:
+        - fullchain.pem
+        - privkey.pem
 
-    - name: Configure Letsencrypt
-      command: /usr/share/jitsi-meet/scripts/install-letsencrypt-cert.sh
-      when: not certificate_folder.stat.exists
+    - name: Set certificates variable
+      set_fact:
+        generate_certs: false
+      when:
+        - certs['results'][0]['stat']['exists']
+        - certs['results'][1]['stat']['exists']
+
+    - name: Create certificate folder
+      file:
+        path: /etc/letsencrypt/live/{{ jitsi_hostname }}
+        state: directory
+
+    - name: Copy certificates
+      copy:
+        src: "{{ item }}"
+        dest: "/etc/letsencrypt/live/{{ jitsi_hostname }}/"
+        mode: '0600'
+      loop:
+        - fullchain.pem
+        - privkey.pem
+      when: not generate_certs
+
+    - name: Run letsencrypt script
+      when: generate_certs
+      block:
+        - name: Preset email value for letsencrypt script
+          lineinfile:
+            path: /usr/share/jitsi-meet/scripts/install-letsencrypt-cert.sh
+            regexp: 'read EMAIL$'
+            line: "EMAIL={{ email_address }}  # read EMAIL"
+
+        - name: Check if letencrypt already ran
+          stat:
+            path: /etc/letsencrypt/live/{{ jitsi_hostname }}
+          register: certificate_folder
+
+        - name: Configure Letsencrypt
+          command: /usr/share/jitsi-meet/scripts/install-letsencrypt-cert.sh
+          when: not certificate_folder.stat.exists
+
+        - name: Retrieve certificates
+          fetch:
+            src: /etc/letsencrypt/live/{{ jitsi_hostname }}/{{ item }}
+            dest: "{{ playbook_dir }}/files/"
+          loop:
+            - fullchain.pem
+            - privkey.pem
+          
+    - name: Set certificates in nginx config
+      lineinfile:
+        path: /etc/nginx/sites-enabled/{{ jitsi_hostname }}.conf
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      with_items:
+        - regexp: "^    ssl_certificate\\s"
+          line: "    ssl_certificate /etc/letsencrypt/live/{{ jitsi_hostname }}/fullchain.pem;"
+        - regexp: "^    ssl_certificate_key\\s"
+          line: "    ssl_certificate_key /etc/letsencrypt/live/{{ jitsi_hostname }}/privkey.pem;"
+    
+    - name: Restart nginx
+      service:
+        name: nginx
+        state: restarted
