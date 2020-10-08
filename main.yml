@@ -74,8 +74,9 @@
 
     - name: Create certificate folder
       file:
-        path: /etc/letsencrypt/live/{{ jitsi_hostname }}
+        path: "/etc/letsencrypt/live/{{ jitsi_hostname }}"
         state: directory
+      when: not generate_certs
 
     - name: Copy certificates
       copy:
