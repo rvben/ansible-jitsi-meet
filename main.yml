@@ -79,7 +79,7 @@
 
     - name: Copy certificates
       copy:
-        src: "{{ item }}"
+        src: "{{ jitsi_hostname }}/{{ item }}"
         dest: "/etc/letsencrypt/live/{{ jitsi_hostname }}/"
         mode: '0600'
       loop:
@@ -107,8 +107,9 @@
 
         - name: Retrieve certificates
           fetch:
-            src: /etc/letsencrypt/live/{{ jitsi_hostname }}/{{ item }}
-            dest: "{{ playbook_dir }}/files/"
+            src: "/etc/letsencrypt/live/{{ jitsi_hostname }}/{{ item }}"
+            dest: "{{ playbook_dir }}/files/{{ item }}"
+          when: not certificate_folder.stat.exists
           loop:
             - fullchain.pem
             - privkey.pem
